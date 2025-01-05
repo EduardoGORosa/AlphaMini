@@ -1,44 +1,36 @@
-# move_encoding.py
 import chess
 import pickle
 
 def generate_move_to_index():
     """
-    Generates a mapping from all possible UCI moves to unique indices.
+    Enumerates all possible from-square -> to-square combos (64 x 64 = 4096)
+    PLUS promotions (4 possible promotion pieces).
+    => 64 x 64 x 5 = 20,480 total move strings in 'move_to_index'.
     """
     move_to_index = {}
-    index = 0
-    # Iterate over all from and to squares
-    for from_square in chess.SQUARES:
-        for to_square in chess.SQUARES:
-            # Normal moves
-            move = chess.Move(from_square, to_square)
-            move_to_index[move.uci()] = index
-            index += 1
+    idx = 0
 
-            # Promotions
-            for promotion in [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]:
-                move_promo = chess.Move(from_square, to_square, promotion=promotion)
-                move_to_index[move_promo.uci()] = index
-                index += 1
+    for from_sq in chess.SQUARES:  # 0..63
+        for to_sq in chess.SQUARES:  # 0..63
+            # 1) Normal move (no promotion)
+            normal_move = chess.Move(from_sq, to_sq)
+            move_uci = normal_move.uci()  # e.g. "e2e4"
+            move_to_index[move_uci] = idx
+            idx += 1
+
+            # 2) Promotion moves (Q,R,B,N)
+            for promo_piece in [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]:
+                promo_move = chess.Move(from_sq, to_sq, promotion=promo_piece)
+                promo_uci = promo_move.uci()  # e.g. "e7e8q"
+                move_to_index[promo_uci] = idx
+                idx += 1
 
     return move_to_index
 
-def generate_index_to_move(move_to_index):
-    """
-    Generates the inverse mapping from indices to UCI moves.
-    """
-    return {v: k for k, v in move_to_index.items()}
-
 if __name__ == "__main__":
     move_to_index = generate_move_to_index()
-    index_to_move = generate_index_to_move(move_to_index)
-
-    # Save mappings for later use
+    print("Number of moves enumerated:", len(move_to_index))  # Should print 20480
     with open("move_to_index.pkl", "wb") as f:
         pickle.dump(move_to_index, f)
 
-    with open("index_to_move.pkl", "wb") as f:
-        pickle.dump(index_to_move, f)
-
-    print(f"Total moves encoded: {len(move_to_index)}")
+    print(f"move_to_index.pkl saved with dimension: {len(move_to_index)}")

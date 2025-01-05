@@ -1,18 +1,31 @@
 import numpy as np
 import torch
 import pickle
+import os
 
-def choose_move_from_pi(legal_moves, pi, temperature=1.0):
+def load_move_mappings(move_to_index_path="move_to_index.pkl"):
     """
-    Selects a move based on the probability distribution pi.
+    Read the dictionary move_uci->int from a .pkl
+    => ensures we can embed the partial distribution into a 20480 vector
     """
-    if temperature == 0:
-        move_index = np.argmax(pi)
+    import pickle
+    if not os.path.exists(move_to_index_path):
+        raise FileNotFoundError(f"{move_to_index_path} not found")
+
+    with open(move_to_index_path,"rb") as f:
+        move_to_index = pickle.load(f)
+    return move_to_index
+
+def choose_move_from_pi(legal_moves, pi_distribution, temperature=1.0):
+    """
+    If temperature=0 => argmax, else sample from pi^1/t.
+    """
+    if temperature < 1e-6:
+        return legal_moves[np.argmax(pi_distribution)]
     else:
-        pi = pi ** (1 / temperature)
-        pi = pi / np.sum(pi)
-        move_index = np.random.choice(len(pi), p=pi)
-    return legal_moves[move_index]
+        pi_temp = pi_distribution ** (1/temperature)
+        pi_temp /= pi_temp.sum()
+        return np.random.choice(legal_moves, p=pi_temp)
 
 def encode_pi(legal_moves, pi, move_to_index):
     """
@@ -25,33 +38,11 @@ def encode_pi(legal_moves, pi, move_to_index):
     return encoded_pi
 
 def decode_move(index, index_to_move):
-    """
-    Decodes an index back to a move in UCI format.
-    """
     return index_to_move.get(index, None)
 
 def encode_state(state_planes):
-    """
-    Converts the state representation into a PyTorch tensor.
-    """
+    # Convert the state representation into a PyTorch tensor.
     return torch.from_numpy(state_planes).float()
 
 def encode_pi_tensor(encoded_pi):
-    """
-    Converts the policy vector into a PyTorch tensor.
-    """
     return torch.from_numpy(encoded_pi).float()
-
-def load_move_mappings():
-    """
-    Loads the move-to-index and index-to-move mappings from separate files.
-    
-    Returns:
-        Tuple[dict, dict]: move_to_index and index_to_move dictionaries.
-    """
-    with open("move_to_index.pkl", "rb") as f:
-        move_to_index = pickle.load(f)
-    with open("index_to_move.pkl", "rb") as f:
-        index_to_move = pickle.load(f)
-    
-    return move_to_index, index_to_move
